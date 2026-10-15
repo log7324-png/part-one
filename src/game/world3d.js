@@ -199,9 +199,10 @@ function iconModel(k, p, type, x, y, z, scale, animated) {
 }
 
 function cottage(k, parent, x, z, config, animated) {
-  const g = k.group(parent, x, 0, z), roofColor = config.roof;
+  const g = k.group(parent, x, 0, z), oceanHome = config.companyId === 'ocean' || config.company === 'ocean';
+  const roofColor = oceanHome ? '#dc6854' : config.roof;
   k.rounded(g, 0, 0.12, 0, 7.3, 0.25, 5.4, '#d1be99');
-  k.rounded(g, 0, 1.82, 0, 7, 3.35, 5, '#fff0d2', 0.16);
+  k.rounded(g, 0, 1.82, 0, 7, 3.35, 5, oceanHome ? '#fff1d7' : '#fff0d2', 0.16);
   // Timber columns, a thick gabled roof, and a rounded dormer create an actual cottage silhouette.
   for (const cx of [-3.3, 3.3]) k.rounded(g, cx, 1.78, 2.48, 0.23, 3.4, 0.2, '#cfa378', 0.05);
   k.box(g, 0, 0.44, 2.52, 6.7, 0.2, 0.12, '#d9bd91');
@@ -215,11 +216,11 @@ function cottage(k, parent, x, z, config, animated) {
       const course = k.rounded(g, side * fraction * 4, 5.2 - fraction * 1.75, 0, 0.19, 0.12, 6.5, roofColor, 0.03); course.rotation.z = -side * 0.412;
     }
   }
-  const ridge = k.cylinder(g, 0, 5.21, 0, 0.16, 0.16, 6.65, '#ead0ab', 10); ridge.rotation.x = Math.PI / 2;
+  const ridge = k.cylinder(g, 0, 5.21, 0, 0.16, 0.16, 6.65, oceanHome ? '#f47d65' : '#ead0ab', 10); ridge.rotation.x = Math.PI / 2;
   k.rounded(g, 0, 1.27, 2.58, 1.5, 2.3, 0.18, '#9e7954', 0.12);
   k.rounded(g, 0, 1.29, 2.69, 1.18, 2.06, 0.025, '#4b6258', 0.05);
   const doorPivot=k.group(g,-.575,0,2.76);doorPivot.userData.dynamic=true;
-  k.rounded(doorPivot,.575,1.29,0,1.15,2.04,.08,config.color,.1);
+  k.rounded(doorPivot,.575,1.29,0,1.15,2.04,.08,oceanHome ? '#4c8ca9' : config.color,.1);
   k.rounded(doorPivot,.575,1.85,.06,.72,.62,.045,'#c4e0d6',.05);
   k.box(doorPivot,.575,1.85,.1,.05,.6,.035,'#fff3d7');k.box(doorPivot,.575,1.85,.1,.7,.05,.035,'#fff3d7');
   k.ball(doorPivot,.965,1.14,.12,.07,'#f6d889');
@@ -227,21 +228,47 @@ function cottage(k, parent, x, z, config, animated) {
   k.rounded(g, 0, 0.11, 3, 2, 0.18, 0.9, '#d4b990');
   for (const wx of [-2.08, 2.08]) {
     k.rounded(g, wx, 1.96, 2.57, 1.35, 1.47, 0.2, '#d6b589', 0.1);
-    k.rounded(g, wx, 1.96, 2.7, 1.13, 1.22, 0.07, '#a7d0d3', 0.08);
+    k.rounded(g, wx, 1.96, 2.7, 1.13, 1.22, 0.07, oceanHome ? '#90c4d5' : '#a7d0d3', 0.08);
     k.box(g, wx, 1.96, 2.76, 1.1, 0.075, 0.06, '#fff3d7'); k.box(g, wx, 1.96, 2.76, 0.075, 1.2, 0.06, '#fff3d7');
     k.rounded(g, wx, 1.15, 2.75, 1.6, 0.23, 0.45, '#bf9470', 0.04);
-    for (let f = -1; f <= 1; f++) { k.ball(g, wx + f * 0.39, 1.4, 2.88, 0.2, '#7aaf72', 1, 0.7, 0.7); k.ball(g, wx + f * 0.39, 1.54, 2.98, 0.1, f % 2 ? '#f0b3a5' : '#f3d48f'); }
+    for (let f = -1; f <= 1; f++) { k.ball(g, wx + f * 0.39, 1.4, 2.88, 0.2, '#7aaf72', 1, 0.7, 0.7); k.ball(g, wx + f * 0.39, 1.54, 2.98, 0.1, f % 2 ? '#f27969' : '#fff5d2'); }
+    if (oceanHome) for (const side of [-1, 1]) {
+      const shutter=k.rounded(g,wx+side*.79,1.96,2.78,.31,1.32,.09,'#4f91ac',.04);
+      shutter.rotation.y=side*.22;
+      for(const dy of[-.36,0,.36])k.box(g,wx+side*.79,1.96+dy,2.84,.24,.035,.02,'#34738e');
+    }
   }
   // Side windows are visible from the game's oblique camera.
   for (const sx of [-1, 1]) {
     k.rounded(g, sx * 3.54, 2, 0, 0.14, 1.3, 1.1, '#b5d5d1', 0.04);
     k.box(g, sx * 3.63, 2, 0, 0.06, 1.35, 0.06, '#fff3d7');
   }
-  const awning = k.rounded(g, 0, 2.66, 2.95, 2.2, 0.18, 1.1, config.color, 0.06); awning.rotation.x = 0.12;
-  for (const ax of [-0.96, 0.96]) k.cylinder(g, ax, 1.4, 3.32, 0.045, 0.045, 2.6, '#cba475', 6);
-  k.board(g, config.name, '문까지 걸어가면 들어갈 수 있어요', 0, 3.43, 3.34, 4.5);
-  // Roof-mounted exhibit is visible in the village and changes with every house.
-  iconModel(k, g, config.icon, 0, 5.3, -0.35, 0.65, animated);
+  if (oceanHome) {
+    // A cottage modeled from the supplied reference: coral roof tiles, blue shutters,
+    // upper window, flower boxes and a stone chimney. The hinged entrance stays usable.
+    for(const side of[-1,1])for(let row=0;row<4;row++)for(let col=0;col<7;col++){
+      const edge=(row+.55)/4, tile=k.rounded(g,side*edge*3.86,5.17-edge*1.72,-2.65+col*.86,.83,.1,.9,(row+col)%2?'#f17460':'#e76552',.045);
+      tile.rotation.z=-side*.414;
+    }
+    k.rounded(g,0,4.16,3.23,1.05,1.05,.13,'#e2c99f',.25);
+    k.rounded(g,0,4.16,3.32,.78,.79,.05,'#82bfd1',.22);
+    k.box(g,0,4.16,3.37,.055,.77,.035,'#fff2cf');k.box(g,0,4.16,3.37,.76,.055,.035,'#fff2cf');
+    k.rounded(g,0,3.62,3.37,1.45,.23,.33,'#ad754c',.04);
+    for(const fx of[-.55,-.27,0,.27,.55]){
+      k.ball(g,fx,3.79,3.4,.18,'#559b51',1,1,.6);
+      k.ball(g,fx,3.9,3.52,.11,fx===0?'#fff5cf':'#f27e72',1,.8,.55);
+    }
+    k.rounded(g,2.88,4.34,-1.9,.7,1.35,.7,'#eee1c9',.12);
+    for(const cy of[3.95,4.4,4.85])k.box(g,2.88,cy,-1.48,.67,.055,.05,'#d9c5aa');
+    k.rounded(g,-.8,1.4,2.65,.15,2.55,.16,'#e4d1b4',.04);
+    k.rounded(g,.8,1.4,2.65,.15,2.55,.16,'#e4d1b4',.04);
+    k.board(g,config.name,config.subtitle||'바다의 기술을 만나보세요',-3.65,1.4,3.25,2.45);
+  } else {
+    const awning = k.rounded(g, 0, 2.66, 2.95, 2.2, 0.18, 1.1, config.color, 0.06); awning.rotation.x = 0.12;
+    for (const ax of [-0.96, 0.96]) k.cylinder(g, ax, 1.4, 3.32, 0.045, 0.045, 2.6, '#cba475', 6);
+    k.board(g, config.name, '문까지 걸어가면 들어갈 수 있어요', 0, 3.43, 3.34, 4.5);
+    iconModel(k, g, config.icon, 0, 5.3, -0.35, 0.65, animated);
+  }
   planter(k, g, -3.8, 2.4, '#f0b2a3', 0.9); planter(k, g, 3.8, 2.4, '#f2d177', 0.9);
   return g;
 }
