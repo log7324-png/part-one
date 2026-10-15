@@ -2,7 +2,7 @@
 import { HOUSES, houseById } from '../data/houses.js';
 const LEGACY_HOUSES = [[-11, -6], [10, -8], [9, 8]];
 const COMPANY = {
-  hub: { name: '한화 테크 빌리지', color: '#eea167', roof: '#db8d5f', subtitle: '천천히 걸으며 기술을 만나요' },
+  hub: { name: '모여봐요 한화의 숲', color: '#eea167', roof: '#db8d5f', subtitle: '천천히 걸으며 기술을 만나요' },
   systems: { name: '한화시스템', color: '#73b6a6', roof: '#529b89', subtitle: '세상을 발견하는 기술' },
   aerospace: { name: '한화에어로스페이스', color: '#e1aa72', roof: '#cb805a', subtitle: '새로운 길을 여는 기술' },
   ocean: { name: '한화오션', color: '#80b9c7', roof: '#588fa7', subtitle: '바다를 연결하는 기술' },
@@ -53,9 +53,9 @@ function kit(THREE) {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff7e4'; ctx.beginPath(); ctx.roundRect(7, 7, 754, 210, 30); ctx.fill();
     ctx.strokeStyle = '#d6bc8b'; ctx.lineWidth = 8; ctx.stroke();
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
-    ctx.font = 'bold 49px "Malgun Gothic", sans-serif'; ctx.fillText(title, 384, subtitle ? 82 : 114, 700);
-    if (subtitle) { ctx.font = '28px "Malgun Gothic", sans-serif'; ctx.fillStyle = '#86785e'; ctx.fillText(subtitle, 384, 158, 700); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = color === '#425d4e' ? '#314b38' : color;
+    ctx.font = '800 57px "Pretendard Variable", Pretendard, sans-serif'; ctx.fillText(title, 384, subtitle ? 81 : 114, 700);
+    if (subtitle) { ctx.font = '600 34px "Pretendard Variable", Pretendard, sans-serif'; ctx.fillStyle = '#60533f'; ctx.fillText(subtitle, 384, 160, 710); }
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(width, width * 224 / 768), new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: true }));
     m.position.set(x, y, z); p.add(m); return m;
@@ -391,7 +391,7 @@ export function buildExterior(THREE, companyId = 'hub') {
     k.rounded(group,0,3.1,24,5.6,.55,.4,company.color,.12);
     k.board(group,'중앙 마을로 돌아가기','이 관문 아래로 걸어가세요',0,3.12,24.3,5);
     triggers.push({id:'hub',type:'company',x:0,z:24,radius:1});
-  } else k.board(group,'어서 와요, 기술의 섬','섬의 다섯 집을 찾아 걸어가 보세요',-6,1.5,24,4.8);
+  } else k.board(group,'어서 와요, 기술의 섬','섬의 다섯 집을 찾아 걸어가 보세요',-6,1.5,17,3.6);
   planter(k,group,-8,24,'#eab2b2');planter(k,group,8,24,'#f2d177');
   k.board(group,company.name,company.subtitle,0,1.5,-25,5.6);
   for(const x of[-2.1,2.1])k.cylinder(group,x,.6,-25.1,.07,.07,1.2,'#bc966b',6);

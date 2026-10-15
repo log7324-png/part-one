@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import mascotUrl from '../../hanwha-mascot.glb?url';
 import { buildExterior, buildInterior } from './world3d.js';
 import { CHARACTER_RADIUS, findPath, moveWithCollisions, nearestWalkablePoint } from './navigation3d.js';
 import { houseForTopic } from '../data/houses.js';
 
-const COMPANY_NAMES = {hub:'테크 빌리지 중앙 마을', systems:'한화시스템 마을', aerospace:'한화에어로스페이스 마을', ocean:'한화오션 마을'};
+const COMPANY_NAMES = {hub:'모여봐요 한화의 숲', systems:'한화시스템 마을', aerospace:'한화에어로스페이스 마을', ocean:'한화오션 마을'};
 const FACILITY_NAMES = {radar:'레이다 연구소',satellite:'위성 관측소',combat:'함정 관제실',engine:'항공엔진 공방',launch:'우주 발사센터',ground:'지상장비 정비소',lng:'LNG 항구 사무소',naval:'특수선 설계실',offshore:'해양설비 제작소'};
 const VALID_COMPANIES = new Set(Object.keys(COMPANY_NAMES));
 
@@ -120,6 +122,54 @@ export function makeExplorer(color) {
   return {group,shirt,head,leftArm,rightArm,leftLeg,rightLeg,tail,setShirtColor};
 }
 
+// Keep the procedural character visible while the supplied GLB loads. The
+// wrapper group is also the player's collision and movement anchor.
+export function loadMascotInto(explorer, color = '#58a45f') {
+  let cancelled = false;
+  new GLTFLoader().load(mascotUrl, ({scene: model}) => {
+    if (cancelled) { disposeGroup(model); return; }
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    if (!Number.isFinite(size.y) || size.y <= 0) { disposeGroup(model); return; }
+    const scale = 2.15 / size.y;
+    model.scale.setScalar(scale);
+    model.position.set(
+      -(bounds.min.x + bounds.max.x) * scale / 2,
+      -bounds.min.y * scale,
+      -(bounds.min.z + bounds.max.z) * scale / 2,
+    );
+    const uniformMaterials = new Map();
+    model.traverse(object => {
+      if (!object.isMesh) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        if (material?.name?.toLowerCase().includes('uniform')) {
+          uniformMaterials.set(material, material.color.clone());
+        }
+      }
+    });
+    for (const child of [...explorer.group.children]) {
+      explorer.group.remove(child);
+      disposeGroup(child);
+    }
+    explorer.group.add(model);
+    explorer.model = model;
+    explorer.isModel = true;
+    explorer.setShirtColor = hex => {
+      for (const [material, original] of uniformMaterials) {
+        // Existing saves used green for the old dog's default shirt. The new
+        // mascot keeps the artist's original charcoal uniform by default.
+        material.color.copy(hex === '#58a45f' || hex === '#303136' ? original : new THREE.Color(hex));
+      }
+    };
+    explorer.setShirtColor(color);
+  }, undefined, () => {
+    // A failed asset request leaves the fully functional procedural fallback.
+  });
+  return () => { cancelled = true; };
+}
+
 const isEditable = target => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 const distanceTo=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 
@@ -132,7 +182,7 @@ export function createVillageGame(container, options = {}) {
   const call=(name,...args)=>{if(!destroyed && typeof options[name]==='function')options[name](...args);};
   const inert={destroy(){destroyed=true;},setCompany(){},setPaused(){},setCharacterColor(){},moveToFacility(){},setDirection(){},exitInterior(){}};
   const canvas=document.createElement('canvas');
-  canvas.setAttribute('aria-label','방향키로 탐험하는 3D 한화 테크 빌리지');
+  canvas.setAttribute('aria-label','방향키로 탐험하는 3D 모여봐요 한화의 숲');
   canvas.setAttribute('role','img');canvas.tabIndex=0;
   canvas.style.cssText='display:block;width:100%;height:100%;outline:none;touch-action:none;';
   try {
@@ -164,6 +214,7 @@ export function createVillageGame(container, options = {}) {
   sun.shadow.normalBias=.035;sun.shadow.bias=-.0002;sun.shadow.radius=3;
   scene.add(sun,sun.target);
   const avatar=makeExplorer(/^#[0-9a-f]{6}$/i.test(options.color||'')?options.color:'#58a45f');scene.add(avatar.group);
+  const cancelMascotLoad=loadMascotInto(avatar, options.color || '#58a45f');
   const player={x:0,z:8};
   const cameraTarget=new THREE.Vector3(),desiredCamera=new THREE.Vector3();
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),hitPoint=new THREE.Vector3();
@@ -180,8 +231,9 @@ export function createVillageGame(container, options = {}) {
 
   function cameraPosition(snap=false,dt=.016) {
     const interior=Boolean(facilityId);
-    // A low, forward-looking village camera shows faces and house fronts.
-    const offset=interior?{y:5.8,z:11.8,lookY:1.35,lead:1.4}:{y:6.5,z:15,lookY:1.35,lead:3.5};
+    // Keep the camera near the character's height and on the front-facing side
+    // of the village, so the avatar and house facades read from eye level.
+    const offset=interior?{y:3.9,z:8.5,lookY:1.35,lead:1.4}:{y:3.8,z:10.8,lookY:1.35,lead:2.1};
     cameraTarget.set(player.x,offset.lookY,player.z-offset.lead);
     desiredCamera.set(player.x,offset.y,player.z+offset.z);
     if(snap)camera.position.copy(desiredCamera);
@@ -396,11 +448,16 @@ export function createVillageGame(container, options = {}) {
     }
     walkTime+=dt*(moving?10:2);
     const gait=moving?Math.sin(walkTime)*.65:Math.sin(walkTime)*.025;
-    avatar.leftLeg.rotation.x=gait;avatar.rightLeg.rotation.x=-gait;
-    avatar.leftArm.rotation.x=-gait*.8;avatar.rightArm.rotation.x=gait*.8;
-    avatar.group.position.set(player.x,moving?Math.abs(Math.sin(walkTime))*.055:Math.sin(walkTime)*.012,player.z);
-    avatar.head.rotation.z=moving?Math.sin(walkTime/2)*.025:Math.sin(walkTime*.4)*.018;
-    avatar.tail.rotation.y=Math.sin(walkTime*(moving?1.8:1.2))*.32;
+    if (avatar.isModel) {
+      avatar.model.rotation.z=moving?Math.sin(walkTime)*.035:0;
+      avatar.group.position.set(player.x,moving?Math.abs(Math.sin(walkTime))*.035:0,player.z);
+    } else {
+      avatar.leftLeg.rotation.x=gait;avatar.rightLeg.rotation.x=-gait;
+      avatar.leftArm.rotation.x=-gait*.8;avatar.rightArm.rotation.x=gait*.8;
+      avatar.group.position.set(player.x,moving?Math.abs(Math.sin(walkTime))*.055:Math.sin(walkTime)*.012,player.z);
+      avatar.head.rotation.z=moving?Math.sin(walkTime/2)*.025:Math.sin(walkTime*.4)*.018;
+      avatar.tail.rotation.y=Math.sin(walkTime*(moving?1.8:1.2))*.32;
+    }
     for(const item of world?.animated||[]) {
       if(item.kind==='rotate')item.mesh.rotation.y+=dt*(item.speed||1);
       else if(item.kind==='bob')item.mesh.position.y=(item.baseY??0)+Math.sin(time/1000*(item.speed||1))*.13;
@@ -425,6 +482,7 @@ export function createVillageGame(container, options = {}) {
   return {
     destroy() {
       if(destroyed)return;destroyed=true;cancelAnimationFrame(frameId);clearTimeout(transitionTimer);resizeObserver.disconnect();
+      cancelMascotLoad();
       window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',onBlur);
       canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);canvas.removeEventListener('webglcontextlost',contextLost);
       disposeGroup(world?.group);disposeGroup(avatar.group);disposeGroup(destinationMarker);

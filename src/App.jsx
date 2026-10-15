@@ -1,12 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { Leaf, BookOpen, Compass, ArrowUpRight, ArrowRight, Sparkles, X, Check, ChevronRight, Volume2, VolumeX, HelpCircle, Settings2, MapPin, Sun, Award, RotateCcw, Send, ExternalLink, Radio, Rocket, Anchor, Satellite, Shield, Wind, Factory, Ship, Waves, Loader2, Trees, Move, Target, CircleCheck, House, DoorOpen, PanelRightClose, PanelRightOpen, Maximize2, Minimize2 } from 'lucide-react';
+import { Leaf, BookOpen, Compass, ArrowUpRight, ArrowRight, Sparkles, X, Check, ChevronRight, Volume2, VolumeX, HelpCircle, Settings2, Sun, Award, RotateCcw, Send, ExternalLink, Radio, Rocket, Anchor, Satellite, Shield, Wind, Factory, Ship, Waves, Loader2, Trees, Move, Target, CircleCheck, House, DoorOpen, PanelRightClose, PanelRightOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { COMPANIES, FACILITIES, COMPARE } from './data/content.js';
 import { createVillageGame, makeExplorer, disposeGroup } from './game/VillageGame.js';
 import { HOUSES, houseById } from './data/houses.js';
 import { loadProgress, saveProgress, getFacility as getTechFacility, askQuestion, getSources } from './lib/learning.js';
 
-const HUB = { id: 'hub', name: '중앙 광장', shortName: '중앙 광장', englishName: 'WELCOME, LITTLE EXPLORER', tagline: '새로운 발견이 기다리는 곳', description: '포근한 마을에 오신 것을 환영해요. 세 회사의 집으로 걸어가 새로운 기술을 만나보세요.', color: '#658b55', lightColor: '#e8efd9', guideName: '초록' };
+const HUB = { id: 'hub', name: '모여봐요 한화의 숲', shortName: '중앙 광장', englishName: 'WELCOME, LITTLE EXPLORER', tagline: '새로운 발견이 기다리는 곳', description: '포근한 마을에 오신 것을 환영해요. 세 회사의 집으로 걸어가 새로운 기술을 만나보세요.', color: '#658b55', lightColor: '#e8efd9', guideName: '초록' };
+const LOGO_PARTS = [
+  [425, 55, 700, 380], [685, 75, 940, 380], [930, 65, 1190, 380], [1170, 0, 1490, 382],
+  [305, 365, 670, 740], [670, 365, 1025, 740], [1020, 455, 1300, 745], [1285, 305, 1735, 778],
+];
+const logoClip = ([left, top, right, bottom]) => ({
+  clipPath: `inset(${top / 778 * 100}% ${(2021 - right) / 2021 * 100}% ${(778 - bottom) / 778 * 100}% ${left / 2021 * 100}%)`,
+  transformOrigin: `${(left + right) / 2 / 2021 * 100}% ${(top + bottom) / 2 / 778 * 100}%`,
+});
+function OpeningScreen({ phase, onSkip, onStart }) {
+  return <main className={`opening-screen ${phase === 'opening' ? 'is-animating' : 'is-ready'}`} onClick={phase === 'opening' ? onSkip : undefined}>
+    <div className="opening-content">
+      <div className="opening-logo" role="img" aria-label="모여봐요 한화의 숲 로고">
+        {LOGO_PARTS.map((part, index) => <img key={index} src="/images/hanwha-forest-logo.png" alt="" draggable="false" style={{ ...logoClip(part), '--piece': index }}/>) }
+      </div>
+      {phase === 'start' && <div className="opening-actions"><p>다섯 집에서 한화의 기술을 만나보세요</p><button className="opening-start" onClick={onStart}>탐험 시작 <ArrowRight size={20}/></button><small>방향키 또는 WASD로 이동 · 집 문으로 걸어가 입장</small></div>}
+    </div>
+    {phase === 'opening' && <button className="opening-skip" onClick={event => { event.stopPropagation(); onSkip(); }}>건너뛰기</button>}
+  </main>;
+}
+export default function App() {
+  const [phase, setPhase] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'start' : 'opening');
+  useEffect(() => {
+    if (phase !== 'opening') return undefined;
+    const timeout = window.setTimeout(() => setPhase('start'), 2750);
+    return () => window.clearTimeout(timeout);
+  }, [phase]);
+  if (phase !== 'game') return <OpeningScreen phase={phase} onSkip={() => setPhase('start')} onStart={() => setPhase('game')}/>;
+  return <GameApp/>;
+}
 function getFacility(id) { return getTechFacility(id); }
 const ICONS = { radar: Radio, satellite: Satellite, combat: Shield, engine: Wind, launch: Rocket, ground: Factory, lng: Ship, naval: Anchor, offshore: Waves, 'portal-systems': Radio, 'portal-aerospace': Rocket, 'portal-ocean': Anchor };
 function FacilityIcon({ id, size = 21, ...props }) { const Icon = ICONS[id] || Compass; return <Icon size={size} strokeWidth={1.65} {...props}/>; }
@@ -38,10 +67,10 @@ function MeshAvatarPreview({ color }) {
   return <span className="mesh-avatar-preview" role="img" aria-label="회전하는 3D 강아지 캐릭터" ref={mount}/>;
 }
 
-export default function App() {
+function GameApp() {
   const [progress, setProgress] = useState(loadProgress);
   const [companyId, setCompanyId] = useState('hub');
-  const [location, setLocation] = useState({ companyId: 'hub', label: '중앙 광장', interior: false });
+  const [location, setLocation] = useState({ companyId: 'hub', label: '모여봐요 한화의 숲', interior: false });
   const [modal, setModal] = useState(null);
   const [facilityId, setFacilityId] = useState(null);
   const [residentHouseId, setResidentHouseId] = useState(null);
@@ -51,8 +80,8 @@ export default function App() {
   const [sound, setSound] = useState(false);
   const [toast, setToast] = useState('');
   const [notice, setNotice] = useState(true);
-  const [guideOpen, setGuideOpen] = useState(() => window.innerWidth >= 1000);
-  const [immersive, setImmersive] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [immersive, setImmersive] = useState(true);
   const [gameError, setGameError] = useState('');
   const canvasRef = useRef(null), gameRef = useRef(null), openRef = useRef(null), closeRef = useRef(null), audioRef = useRef(null);
   const company = COMPANIES.find(c => c.id === companyId) || HUB;
@@ -107,10 +136,10 @@ export default function App() {
     return () => clearTimeout(id);
   }, [toast]);
   useEffect(() => {
-    const fn = e => { if (e.key === 'Escape') { closeRef.current(); setImmersive(false); } };
+    const fn = e => { if (e.key === 'Escape') { closeRef.current(); if (modal !== 'resident') setImmersive(false); } };
     window.addEventListener('keydown', fn);
     return () => window.removeEventListener('keydown', fn);
-  }, []);
+  }, [modal]);
   useEffect(() => {
     if (!sound) {
       if (audioRef.current && audioRef.current.state !== 'closed') audioRef.current.close();
@@ -164,7 +193,7 @@ export default function App() {
     <header className="topbar">
       <a href="#" className="brand" onClick={e => { e.preventDefault(); closeModal(); }} aria-label="탐험 화면으로">
         <span className="brand-mark"><Leaf size={24}/></span>
-        <span>한화 테크 빌리지<small>HANWHA TECH VILLAGE</small></span>
+        <span>모여봐요 한화의 숲<small>HANWHA TECH VILLAGE</small></span>
       </a>
       <nav className="main-nav" aria-label="주요 메뉴">
         <button className={!modal || modal === 'facility' ? 'active' : ''} onClick={closeModal}><Compass size={18}/>마을 탐험</button>
@@ -194,13 +223,15 @@ export default function App() {
         {gameError && <div className="game-error" role="alert"><HelpCircle size={28}/><h2>마을을 불러오지 못했어요</h2><p>{gameError}</p><button onClick={() => window.location.reload()} className="primary-button">다시 불러오기</button></div>}
 
         <div className="world-hud">
-          <div className="location-card"><span className="location-icon">{location.interior ? <House size={21}/> : <MapPin size={21}/>}</span><div><small>{location.interior ? 'INSIDE THE HOUSE' : 'A LITTLE WORLD OF DISCOVERY'}</small><h1>{location.label || company.name}</h1><span>{location.interior ? '전시물 앞에서 E를 눌러 살펴보세요' : company.tagline}</span></div></div>
+          <svg className="location-logo" viewBox="300 0 1450 778" role="img" aria-label="모여봐요 한화의 숲 로고">
+            <image href="/images/hanwha-forest-logo.png" width="2021" height="778"/>
+          </svg>
           <div className="world-tools"><span className="weather-pill"><Sun size={19}/><span>맑음 · 느긋한 오후</span></span><button className="round-tool" aria-label={immersive ? '기본 화면으로' : '넓게 탐험하기'} onClick={() => setImmersive(!immersive)}>{immersive ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}</button><button className="round-tool" aria-label={guideOpen ? '마을 안내 접기' : '마을 안내 펼치기'} onClick={() => setGuideOpen(!guideOpen)}>{guideOpen ? <PanelRightClose size={18}/> : <PanelRightOpen size={18}/>}</button></div>
         </div>
 
         {notice && !modal && <div className="welcome-bubble"><span className="welcome-flower">✿</span><div><strong>어서 와요, {progress.name || '탐험가'}님!</strong><p>방향키로 걸어가 집 안을 탐험해 보세요.</p></div><button aria-label="환영 안내 닫기" onClick={() => setNotice(false)}><X size={15}/></button></div>}
 
-        {guideOpen && !immersive && <aside className="village-guide">
+        {guideOpen && <aside className="village-guide">
           <div className="guide-heading"><span><BookOpen size={14}/>마을 안내서</span><small>VILLAGE GUIDE</small></div>
           <div className="company-intro"><span className="company-symbol" style={{ background: company.lightColor, color: company.color }}>{companyId === 'hub' ? <House size={26}/> : <FacilityIcon id={`portal-${companyId}`} size={26}/>}</span><div><small>{companyId === 'hub' ? 'START YOUR LITTLE JOURNEY' : company.englishName}</small><h2>{company.name}</h2></div></div>
           <p className="company-description">한 마을에 다섯 집이 모여 있어요. 시스템 2채, 에어로스페이스 2채, 바닷가 오션 1채를 둘러보세요.</p>
@@ -217,6 +248,7 @@ export default function App() {
         </div>
 
         {nearby && !modal && <button className="interact-prompt" onClick={interact}><kbd>E</kbd><span>{nearby.label?.replace(/^E\s+/, '') || (nearby.type === 'inspect' ? '전시물 살펴보기' : nearby.type === 'exit' ? '집 밖으로 나가기' : '집으로 들어가기')}</span><ArrowRight size={17}/></button>}
+        {modal === 'resident' && residentHouse && <ResidentDialogue house={residentHouse} onClose={closeModal} onVisit={visit}/>}
         <div className="touch-controls" aria-label="터치 이동">
           <button aria-label="위로 이동" onPointerDown={() => gameRef.current?.setDirection(0, -1)} onPointerUp={() => gameRef.current?.setDirection(0, 0)} onPointerLeave={() => gameRef.current?.setDirection(0, 0)}>↑</button>
           <div>{[[-1, 0, '←', '왼쪽'], [0, 1, '↓', '아래'], [1, 0, '→', '오른쪽']].map(([x, y, text, label]) => <button key={label} aria-label={`${label}으로 이동`} onPointerDown={() => gameRef.current?.setDirection(x, y)} onPointerUp={() => gameRef.current?.setDirection(0, 0)} onPointerLeave={() => gameRef.current?.setDirection(0, 0)}>{text}</button>)}</div>
@@ -226,9 +258,8 @@ export default function App() {
     </main>
 
     {toast && <div className="toast" role="status"><Award size={19}/>{toast}</div>}
-    {modal && <Modal title={modal === 'facility' ? selected?.name : modal === 'resident' ? `주민 ${residentHouse?.resident||''}` : modal === 'notebook' ? '나의 기술 도감' : modal === 'compare' ? '세 회사의 기술 지도' : modal === 'profile' ? '나의 탐험가' : '마을을 탐험하는 방법'} subtitle={modal === 'facility' ? COMPANIES.find(c => c.id === selected?.companyId)?.name : modal === 'resident' ? residentHouse?.name : 'HANWHA TECH VILLAGE'} onClose={closeModal} wide={['facility', 'notebook', 'compare'].includes(modal)}>
+    {modal && modal !== 'resident' && <Modal title={modal === 'facility' ? selected?.name : modal === 'notebook' ? '나의 기술 도감' : modal === 'compare' ? '세 회사의 기술 지도' : modal === 'profile' ? '나의 탐험가' : '마을을 탐험하는 방법'} subtitle={modal === 'facility' ? COMPANIES.find(c => c.id === selected?.companyId)?.name : 'HANWHA TECH VILLAGE'} onClose={closeModal} wide={['facility', 'notebook', 'compare'].includes(modal)}>
       {modal === 'facility' && selected && <FacilityPanel key={selected.id} facility={selected} tab={panelTab} setTab={setPanelTab} completed={progress.completed.includes(selected.id)} onComplete={() => complete(selected.id)}/>}
-      {modal === 'resident' && residentHouse && <div className="panel-body resident-panel"><div className="resident-greeting"><span>✿</span><div><strong>안녕! 나는 {residentHouse.resident}야.</strong><p>{residentHouse.residentIntro}</p><p>우리 집에서 어떤 기술을 먼저 만나볼래?</p></div></div><div className="resident-topics">{residentHouse.topics.map(id=><button key={id} onClick={()=>{setModal(null);gameRef.current?.setPaused(false);gameRef.current?.moveToFacility(id);}}><FacilityIcon id={id} size={20}/><span>{getTechFacility(id)?.name}</span><ArrowRight size={16}/></button>)}</div></div>}
       {modal === 'notebook' && <Notebook progress={progress} onOpen={openFacility} onVisit={visit}/>}
       {modal === 'compare' && <Comparison onOpen={visit}/>}
       {modal === 'profile' && <Profile progress={progress} onSave={p => { setProgress(p); closeModal(); setToast('탐험가의 새 모습이 준비됐어요.'); }}/>}
@@ -236,6 +267,35 @@ export default function App() {
     </Modal>}
   </div>;
 }
+function ResidentDialogue({ house, onClose, onVisit }) {
+  const [page, setPage] = useState(0);
+  const dialogRef = useRef(null);
+  const pages = [
+    `안녕! 나는 ${house.resident}야. ${house.residentIntro}`,
+    `이곳은 ${house.name}이야. ${house.subtitle} 이야기를 함께 알아볼 수 있어.`,
+    '궁금한 기술을 골라 보거나, 집 안 전시물 앞으로 걸어가 E키를 눌러 봐!',
+  ];
+  const isLast = page === pages.length - 1;
+  const next = () => { if (isLast) onClose(); else setPage(value => value + 1); };
+  useEffect(() => { dialogRef.current?.focus(); }, []);
+  useEffect(() => {
+    const onKey = event => {
+      if (event.key.toLowerCase() !== 'e' || event.repeat || event.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+      event.preventDefault();event.stopPropagation();next();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [page, onClose]);
+  return <section className="resident-dialogue" ref={dialogRef} role="dialog" aria-modal="true" aria-label={`${house.resident}와 대화`} tabIndex={-1}>
+    <span className="resident-name">{house.resident}</span>
+    <button className="resident-close" onClick={onClose} aria-label="대화 닫기"><X size={17}/></button>
+    <p className="resident-line" aria-live="polite">{pages[page]}</p>
+    {isLast && <div className="resident-dialogue-topics">{house.topics.map(id => <button key={id} onClick={() => onVisit(id)}><FacilityIcon id={id} size={16}/>{getTechFacility(id)?.name}<ArrowRight size={14}/></button>)}</div>}
+    <button className="resident-next" onClick={next} aria-label={isLast ? '대화 마치기' : '다음 대화'}><span>{isLast ? '대화 마치기' : '다음 이야기'}</span><span className="resident-next-arrow" aria-hidden="true"/></button>
+    <span className="resident-page">{page + 1} / {pages.length} · E키로 계속</span>
+  </section>;
+}
+
 function Modal({ title, subtitle, onClose, wide, children }) {
   const ref = useRef(null), previousFocus = useRef(null);
   useEffect(() => { previousFocus.current = document.activeElement; ref.current?.focus(); const prior = document.body.style.overflow; document.body.style.overflow = 'hidden'; const trap = e => { if (e.key !== 'Tab') return; const items = [...ref.current.querySelectorAll('button:not(:disabled), a[href], input, select, textarea, [tabindex="0"]')].filter(x => x.getClientRects().length); if (!items.length) { e.preventDefault(); return; } const first = items[0], last = items.at(-1); if (e.shiftKey && (document.activeElement === first || document.activeElement === ref.current)) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } }; const node = ref.current; node?.addEventListener('keydown', trap); return () => { document.body.style.overflow = prior; node?.removeEventListener('keydown', trap); previousFocus.current?.focus?.(); }; }, []);
